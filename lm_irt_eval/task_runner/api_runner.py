@@ -9,8 +9,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 from tqdm import tqdm
-from openai import OpenAI
 from openai import (
+    OpenAI,
     APIError,
     RateLimitError,
     APIConnectionError,
