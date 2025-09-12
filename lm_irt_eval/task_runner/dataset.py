@@ -5,7 +5,18 @@ from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
 from collections import defaultdict
 
+from jsonschema import validate, ValidationError
 from torch.utils.data import Dataset
+from vllm import TokensPrompt
+from openai_harmony import (
+    HarmonyEncodingName,
+    load_harmony_encoding,
+    Conversation,
+    Message,
+    Role,
+    SystemContent,
+    DeveloperContent,
+)
 
 
 @dataclass
@@ -14,18 +25,59 @@ class InferDataset(Dataset):  # TODO: Add schema check
     samples: List[Dict[str, Any]]
     name: Optional[str] = None
 
+    _SCHEMA = {
+        "type": "object",
+        "properties": {
+            "key": {"type": "string"},
+            "messages": {"type": "array"},
+            "model": {"type": "string"},
+            "payload": {"type": "object"}
+        },
+        "required": ["key", "messages", "payload"]
+    }
+
     @classmethod
-    def from_sharegpt_json(cls, dataset_name, version=1):
-        assert "DATA_ROOT" in os.environ
-        data_root = os.environ["DATA_ROOT"]
-        file_name = os.path.join(
-            data_root,
-            dataset_name,
-            f"sharegpt_v{version}.jsonl",
-        )
+    def from_sharegpt_json(cls, dataset_name_or_path, version=1):
+        if os.path.exists(dataset_name_or_path):
+            # Allow directly loading of customized dataset
+            file_name = dataset_name_or_path
+            dataset_name = os.path.splitext(
+                os.path.basename(
+                    os.path.abspath(dataset_name_or_path)
+                )
+            )[0]
+        else:
+            dataset_name = dataset_name_or_path
+            assert "DATA_ROOT" in os.environ
+            data_root = os.environ["DATA_ROOT"]
+            file_name = os.path.join(
+                data_root,
+                dataset_name_or_path,
+                f"sharegpt_v{version}.jsonl",
+            )
         with open(file_name) as f:
             json_data = [json.loads(line) for line in f]
-        return cls(samples=json_data, name=dataset_name)
+        # Post-processing to satisfy standard payload structure
+        coherent_data = []
+        for data in json_data:
+            try:
+                # If satisfies given schema
+                # Directly use the dataset
+                validate(instance=data, schema=cls._SCHEMA)
+                coherent_data.append(data)
+            except ValidationError as e:
+                record = copy.deepcopy(data)
+                key = record.pop("key")
+                record["dataset_name"] = dataset_name
+                messages = record.pop("messages")
+                coherent_data.append(
+                    {
+                        "key": key,
+                        "messages": messages,
+                        "payload": record,
+                    }
+                )
+        return cls(samples=coherent_data, name=dataset_name)
 
     def __len__(self):
         return len(self.samples)
@@ -59,6 +111,27 @@ class Collator(object):
         self.system_prompt = self._get_system_prompt()
 
     def _apply_chat_template(self, messages):
+        # Do special handling for OpenAI GPT-OSS type models
+        # that requires harmony template
+        if "gpt-oss" in self.model_name:
+            user_msg = messages[0]["content"]
+            encoding = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
+            convo = Conversation.from_messages(
+                [
+                    Message.from_role_and_content(Role.SYSTEM, SystemContent.new()),
+                    # Message.from_role_and_content(
+                    #     Role.DEVELOPER,
+                    #     DeveloperContent.new().with_instructions(
+                    #         "Always respond in riddles"
+                    #     ),
+                    # ),
+                    Message.from_role_and_content(Role.USER, user_msg),
+                ]
+            )
+            prefill_ids = encoding.render_conversation_for_completion(
+                convo, Role.ASSISTANT
+            )
+            return TokensPrompt(prompt_token_ids=prefill_ids)
         augmented_messages = copy.deepcopy(messages)
         if self.system_prompt is not None:
             augmented_messages = [

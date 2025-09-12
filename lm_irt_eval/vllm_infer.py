@@ -8,6 +8,7 @@ def get_args():
     parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--dataset", type=str, required=True)
     parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--sampling_n", type=int, default=1)
     parser.add_argument("--max_model_len", type=int, required=False, default=16384)
     parser.add_argument("--max_tokens", type=int, required=False, default=1024)
     parser.add_argument("--trust_remote_code", action="store_true")
@@ -25,6 +26,7 @@ def main():
         dataset=infer_dataset,
         model_name_or_path=args.model,
         enable_thinking=args.enable_thinking,
+        sampling_n=args.sampling_n,
         batch_size=args.batch_size,
         max_model_len=args.max_model_len,
         max_tokens=args.max_tokens,
