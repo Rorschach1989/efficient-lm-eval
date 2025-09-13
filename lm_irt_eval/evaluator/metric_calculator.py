@@ -1,5 +1,4 @@
 import os
-import re
 from typing import List, Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -20,128 +19,17 @@ from tenacity import (
     retry_if_exception_type
 )
 
-# For NLG evaluation
-import nltk
-import sacrebleu
-from rouge_score import rouge_scorer
-from bert_score import score as bert_score
-from nltk.translate.meteor_score import meteor_score
-
 from .reasoning_parser import CompositeOutputParser
-from ..task_runner.utils import create_logger, log_exception_with_traceback
-
-
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt', quiet=True)
-try:
-    nltk.data.find('corpora/wordnet')
-except LookupError:
-    nltk.download('wordnet', quiet=True)
-try:
-    nltk.data.find('omw-1.4')
-except LookupError:
-    nltk.download('omw-1.4', quiet=True)
-
-SUMMARY_PREFIX_RE = re.compile(r"^\s*(summary\s*:)\s*", flags=re.IGNORECASE)
-BERTSCORE_LANG  = "en"
-BERTSCORE_MODEL = os.environ.get("BERT_SCORE_MODEL", None)
-
-
-def normalize_pred(s: str) -> str:
-    if not isinstance(s, str):
-        return ""
-    s = s.strip()
-    s = SUMMARY_PREFIX_RE.sub("", s)
-    return s.strip()
-
-def normalize_ref(s: str) -> str:
-    if not isinstance(s, str):
-        return ""
-    return s.strip()
-
-# -------- METEOR (Explicit Tokenization) --------
-_METEOR_WARNED = False
-def safe_meteor(ref: str, hyp: str) -> float:
-    """
-    Explicit whitespace tokenization to avoid Punkt dependency;
-    only warn once on exception and return 0.0.
-    """
-    global _METEOR_WARNED
-    try:
-        if not ref or not hyp:
-            return 0.0
-        ref_tokens = ref.lower().strip().split()
-        hyp_tokens = hyp.lower().strip().split()
-        if not ref_tokens or not hyp_tokens:
-            return 0.0
-        return float(meteor_score([ref_tokens], hyp_tokens))
-    except Exception as e:
-        if not _METEOR_WARNED:
-            print(f"[WARN] METEOR calculation failed (shown only once): {e}. Continuing with a score of 0.0.")
-            _METEOR_WARNED = True
-        return 0.0
-
-def compute_meteor_batch(cands, refs):
-    return [safe_meteor(r, c) for c, r in zip(cands, refs)]
-
-# -------- ROUGE --------
-def compute_rouge_batch(cands, refs):
-    scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
-    r1, r2, rL = [], [], []
-    for c, r in zip(cands, refs):
-        if not c or not r:
-            r1.append(0.0); r2.append(0.0); rL.append(0.0)
-            continue
-        sc = scorer.score(r, c)  # Note the order: (ref, cand)
-        r1.append(sc["rouge1"].fmeasure)
-        r2.append(sc["rouge2"].fmeasure)
-        rL.append(sc["rougeL"].fmeasure)
-    return r1, r2, rL
-
-# -------- BERTScore --------
-def compute_bertscore_batch(
-    cands,
-    refs,
-    lang=BERTSCORE_LANG,
-    model=BERTSCORE_MODEL,
-    batch_size=64,
-    device="cuda",
-):
-    P, R, F1 = bert_score(
-        cands,
-        refs,
-        lang=lang,
-        model_type=model,
-        batch_size=batch_size,
-        verbose=False,
-        device=device,
-        num_layers=17,  # Default for roberta-large
-    )
-    return [float(x) for x in P], [float(x) for x in R], [float(x) for x in F1]
-
-# -------- BLEU (SacreBLEU, per-sample) --------
-def compute_bleu_batch(cands, refs, tokenize="13a", smooth_method="exp"):
-    """
-    sacrebleu.sentence_bleu
-    """
-    scores = []
-    for hyp, ref in zip(cands, refs):
-        if not hyp or not ref:
-            scores.append(0.0)
-            continue
-        # sacrebleu.sentence_bleu accepts hypothesis(str), references(List[str])
-        sb = sacrebleu.sentence_bleu(
-            hypothesis=hyp,
-            references=[ref],
-            smooth_method=smooth_method,
-            use_effective_order=True,
-            lowercase=False,
-            tokenize=tokenize
-        )
-        scores.append(float(sb.score) / 100.0)  # Convert to 0-1 range
-    return scores
+from ..utils import (
+    create_logger,
+    log_exception_with_traceback,
+    NLGTaskType,
+    normalize,
+    compute_rouge_batch,
+    compute_meteor_batch,
+    compute_bleu_batch,
+    compute_bertscore_batch
+)
 
 
 class MetricCalculator(object):
@@ -226,9 +114,18 @@ Your decision: """
             else:
                 # Record judgement in-place
                 item["metric"] = {"is_correct": int(answer == item[ground_truth_key])}
+                item["judgement_method"] = "direct_match"
+                self.json_writer.append(item)
         if llm_as_a_judge_collection:
-            # Do LLM-as-a-Judge
-            pass
+            self.logger.info(
+                f"Found {len(llm_as_a_judge_collection)} records that requires LLM-as-a-Judge,"
+                f"running LLM-as-a-Judge with judge model {self.llm_as_a_judge_model}..."
+            )
+            self._run_llm_as_a_judge(
+                batch=llm_as_a_judge_collection,
+                candidate_key=candidate_key,
+                ground_truth_key=ground_truth_key,
+            )
         return batch
 
     def _run_one_llm_as_a_judge(
@@ -250,7 +147,9 @@ Your decision: """
                 max_tokens=4096,
             )
             judgement = response.choices[0].message.content
-            item["judgement"] = judgement
+            item["metric"] = {"is_correct": int("yes" in judgement.lower())}
+            item["judgement_method"] = f"<{self.llm_as_a_judge_model}>_as_a_judge"
+            self.json_writer.append(item)
             return item
         except RateLimitError as e:
             self.logger.warning(f"Rate limit exceeded. Waiting for retry... Error: {e}")
@@ -310,26 +209,30 @@ Your decision: """
                 try:
                     result = future.result()
                     results.append(result)
-                    # self.logger.info(f"Successfully processed request: {request_params}")
-                    self.json_writer.append(
-                        obj=result,
-                    )
                 except Exception as exc:
                     results.append({"request": request_params, "error": str(exc)})
                     self.logger.error(f'Request {request_params} generated an exception: {exc}')
                     log_exception_with_traceback(logger=self.logger)
         return results
 
-    def _batch_process_nlg(self, candidates, references):
+    def _batch_process_nlg(self, candidates, references, task_type: NLGTaskType):
+        candidates = normalize(
+            candidates,
+            strip_task_prefix=True,
+            task_type=task_type
+        )
+        references = normalize(
+            references,
+            strip_task_prefix=False,
+            task_type=task_type
+        )
         # ROUGE
         r1, r2, rL = compute_rouge_batch(candidates, references)
         # BERTScore
-        # bP, bR, bF1 = compute_bertscore_batch(
-        #     candidates,
-        #     references,
-        #     lang=BERTSCORE_LANG,
-        #     model=BERTSCORE_MODEL
-        # )
+        bP, bR, bF1 = compute_bertscore_batch(
+            candidates,
+            references,
+        )
         # METEOR
         mtr = compute_meteor_batch(candidates, references)
         # BLEU
@@ -348,9 +251,9 @@ Your decision: """
                 "rouge1": r1[i],
                 "rouge2": r2[i],
                 "rougeL": rL[i],
-                # "bertscore_P": bP[i],
-                # "bertscore_R": bR[i],
-                # "bertscore_F1": bF1[i],
+                "bertscore_P": bP[i],
+                "bertscore_R": bR[i],
+                "bertscore_F1": bF1[i],
             }
             output.append(metric)
         return output
@@ -360,6 +263,7 @@ Your decision: """
         batch: List[Dict[str, Any]],
         candidate_key="candidate",
         ground_truth_key="ground_truth",
+        task_type: NLGTaskType = NLGTaskType.SUMMARY,
     ):
         r"""**Notes** General NLG never requires LLM-as-a-Judge."""
         df = pd.DataFrame(batch)
@@ -372,8 +276,11 @@ Your decision: """
             return result_content
 
         metrics = self._batch_process_nlg(
-            candidates=df[candidate_key].apply(_strip_reasoning),
-            references=df[ground_truth_key],
+            candidates=df[candidate_key].apply(_strip_reasoning).tolist(),
+            references=df[ground_truth_key].tolist(),
+            task_type=task_type,
         )
         df["metric"] = metrics
-        return df.to_dict(orient="records")
+        output = df.to_dict(orient="records")
+        self.json_writer.append(output)
+        return output

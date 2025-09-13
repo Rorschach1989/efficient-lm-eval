@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 import pandas as pd
 
-from .evaluator.metric_calculator import MetricCalculator
+from .evaluator.metric_calculator import MetricCalculator, NLGTaskType
 
 
 def get_args():
@@ -61,8 +61,10 @@ def main():
                     "query_model": record["query_model"],
                 }
             )
-        if dataset_name in {"XSUM"}:
-            batch = metric_calculator.batch_process_nlg(batch)
+        if dataset_name in {"XSUM", "wmt20"}:
+            task_type = NLGTaskType.SUMMARY \
+                if dataset_name == "XSUM" else NLGTaskType.TRANSLATION
+            batch = metric_calculator.batch_process_nlg(batch, task_type=task_type)
             for m in batch[0]["metric"]:
                 ms = [b["metric"][m] for b in batch]
                 print(f"Request model {request_model}@{dataset_name} under metric {m}: {np.mean(ms)}")
