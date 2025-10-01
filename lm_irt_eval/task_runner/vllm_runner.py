@@ -70,9 +70,21 @@ class VLLMParamConfigurer(object):
                     "top_p": 0.95,
                 }
             )
+        if "Mistral" in self.model_name:
+            extra_kwargs.update(
+                {
+                    "temperature": 0.6,
+                }
+            )
         if "gpt-oss" in self.model_name:
             stop_token_ids = OPENAI_ENCODING.stop_tokens_for_assistant_actions()
-            extra_kwargs.update({"stop_token_ids": stop_token_ids})
+            extra_kwargs.update(
+                {
+                    "stop_token_ids": stop_token_ids,
+                    # As suggested by https://huggingface.co/openai/gpt-oss-20b/discussions/28
+                    "temperature": 0.5,
+                }
+            )
         return extra_kwargs
 
     # def get_tokenizer_params(self):

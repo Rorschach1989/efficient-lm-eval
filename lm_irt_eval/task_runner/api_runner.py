@@ -15,6 +15,7 @@ from openai import (
     RateLimitError,
     APIConnectionError,
     APITimeoutError,
+    PermissionDeniedError
 )
 from tenacity import (
     Retrying,
@@ -24,7 +25,7 @@ from tenacity import (
 )
 
 from .base import TaskRunner
-from .utils import (
+from ..utils import (
     create_logger,
     log_exception_with_traceback,
     NonRetriableHTTPError
@@ -160,6 +161,9 @@ class APITaskRunner(TaskRunner):
         except APITimeoutError as e:
             self.logger.warning(f"API timeout error. Waiting for retry... Error: {e}")
             raise
+        except PermissionDeniedError as e:
+            self.logger.warning(f"Permission denied error. Waiting for retry... Error: {e}")
+            raise
         except APIError as e:
             # Check if the error is a server-side issue (5xx) that might resolve on retry
             if 500 <= int(e.code) < 600:
@@ -185,6 +189,7 @@ class APITaskRunner(TaskRunner):
                     APIConnectionError,
                     APITimeoutError,
                     APIError,
+                    PermissionDeniedError,
                     requests.exceptions.HTTPError,
                     requests.exceptions.RequestException,
                 )

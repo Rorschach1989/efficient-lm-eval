@@ -29,6 +29,7 @@ gt_map = {
     "CSQA": lambda x: x["GT"],
     "XSUM": lambda x: x["true_answer"],
     "Ceval": lambda x: x["true_answer"],
+    "wmt20": lambda x: x["true_answer"],
 }
 
 
@@ -64,7 +65,12 @@ def main():
         if dataset_name in {"XSUM", "wmt20"}:
             task_type = NLGTaskType.SUMMARY \
                 if dataset_name == "XSUM" else NLGTaskType.TRANSLATION
-            batch = metric_calculator.batch_process_nlg(batch, task_type=task_type)
+            filter_double_linebreaks = False if "claude-3" in request_model else True
+            batch = metric_calculator.batch_process_nlg(
+                batch,
+                task_type=task_type,
+                filter_double_linebreaks=filter_double_linebreaks,
+            )
             for m in batch[0]["metric"]:
                 ms = [b["metric"][m] for b in batch]
                 print(f"Request model {request_model}@{dataset_name} under metric {m}: {np.mean(ms)}")

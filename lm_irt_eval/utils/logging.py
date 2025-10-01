@@ -4,13 +4,6 @@ import traceback
 from transformers.utils import logging
 
 
-# Custom Exception for non-retriable HTTP errors
-class NonRetriableHTTPError(Exception):
-    def __init__(self, message, status_code):
-        super().__init__(message)
-        self.status_code = status_code
-
-
 def create_logger(verbosity: int = logging.INFO):
     logging.set_verbosity(verbosity)
     logging.enable_default_handler()
@@ -50,3 +43,4 @@ def log_exception_with_traceback(logger=None):
     # Log the traceback.  This is the *most* important part.
     tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
     logger.error("Traceback:\n%s", "".join(tb_lines))
+

@@ -1,5 +1,5 @@
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
@@ -215,17 +215,28 @@ Your decision: """
                     log_exception_with_traceback(logger=self.logger)
         return results
 
-    def _batch_process_nlg(self, candidates, references, task_type: NLGTaskType):
-        candidates = normalize(
-            candidates,
-            strip_task_prefix=True,
-            task_type=task_type
-        )
-        references = normalize(
-            references,
-            strip_task_prefix=False,
-            task_type=task_type
-        )
+    def _batch_process_nlg(
+        self,
+        candidates: List[str],
+        references: List[str],
+        task_type: NLGTaskType,
+    ):
+        candidates = [
+            normalize(
+                candidate,
+                strip_task_prefix=True,
+                task_type=task_type,
+            )
+            for candidate in candidates
+        ]
+        references = [
+            normalize(
+                reference,
+                strip_task_prefix=False,
+                task_type=task_type,
+            )
+            for reference in references
+        ]
         # ROUGE
         r1, r2, rL = compute_rouge_batch(candidates, references)
         # BERTScore
@@ -264,15 +275,22 @@ Your decision: """
         candidate_key="candidate",
         ground_truth_key="ground_truth",
         task_type: NLGTaskType = NLGTaskType.SUMMARY,
+        filter_double_linebreaks: bool = True,
     ):
         r"""**Notes** General NLG never requires LLM-as-a-Judge."""
         df = pd.DataFrame(batch)
 
         def _strip_reasoning(text):
-            _, result_content = self.reasoning_parser.reasoning_parser.extract_reasoning_content(
-                model_output=text,
-                request=None,  # TODO: perhaps create a dummy request
+            _, result_content = self.reasoning_parser.process_nlg(
+                text=text,
+                skip_reasoning_parser=True,
             )
+            if task_type is NLGTaskType.TRANSLATION and filter_double_linebreaks:
+                # **Note**: This pattern might be not always safe
+                # Not safe for claude-3-5-style models
+                # TODO: refine this filter
+                if "\n\n" in result_content:
+                    result_content = result_content.split("\n\n")[0]
             return result_content
 
         metrics = self._batch_process_nlg(

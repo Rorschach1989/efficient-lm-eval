@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from transformers import AutoTokenizer
 from vllm.reasoning import ReasoningParserManager
 
-from ..task_runner.utils import create_logger
+from ..utils import create_logger
 
 
 class AnswerType(enum.Enum):
@@ -183,25 +183,25 @@ class CompositeOutputParser(object):
             self._extract_general_answers,
             self._extract_markdown_bold_answers,
         ]:
-            stop_search, answer = extract_fn(text)
+            stop_search, answer = extract_fn(answer)
             if stop_search:
                 break
         return answer
 
     def _process_one(self, text, skip_reasoning_parser: bool):
-        if skip_reasoning_parser:
-            thinking_content, result_content = "", text
-        else:
-            thinking_content, result_content = self.reasoning_parser.extract_reasoning_content(
-                model_output=text,
-                request=None,  # TODO: perhaps create a dummy request
-            )
+        thinking_content, result_content = self.reasoning_parser.extract_reasoning_content(
+            model_output=text,
+            request=None,  # TODO: perhaps create a dummy request
+        )
         if result_content is None:
             # In this case, mostly the <think> left tag is NOT closed by the right </think>
             # tag, indicating that the output is truncated by length, do nothing
             # TODO: use logger to add warnings
             return DecomposedOutputs(text, "", "")
-        answer = self.maybe_extract_enclosed_answers(result_content)
+        if not skip_reasoning_parser:
+            answer = self.maybe_extract_enclosed_answers(result_content)
+        else:
+            answer = result_content
         return DecomposedOutputs(thinking_content, result_content, answer)
 
     def process_mcq(self, text, skip_reasoning_parser: bool = False):
@@ -219,6 +219,19 @@ class CompositeOutputParser(object):
             if not answer in self.potential_answers:
                 requires_llm_as_a_judge = True
         return requires_llm_as_a_judge, answer
+
+    def process_nlg(self, text, skip_reasoning_parser: bool = True):
+        decomposed_text = self._process_one(text, skip_reasoning_parser)
+        answer = decomposed_text.result_content.strip()
+        stop_search = False
+        for extract_fn in [
+            self._extract_glm_boxed_answers,
+            self._extract_tagged_answers,
+        ]:
+            stop_search, answer = extract_fn(answer)
+            if stop_search:
+                break
+        return False, answer.strip()
 
     def __call__(self, batch_text: List[str], verbose=False, skip_reasoning_parser: bool = False):
         decoded_texts = []
