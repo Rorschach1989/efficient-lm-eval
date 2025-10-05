@@ -1,11 +1,6 @@
 import pymc as pm
 
-from .base import (
-    IRTMode,
-    BaseIRTModel,
-    _get_theta_default,
-    _get_b_default
-)
+from .base import IRTMode, BaseIRTModel, _get_theta_default, _get_b_default
 
 
 class Rasch1PLModel(BaseIRTModel):
@@ -65,9 +60,7 @@ class Rasch1PLModel(BaseIRTModel):
                 self._theta_std_prior,
             )
             b = _get_b_default(self._b_std_prior)
-            prob = pm.math.sigmoid(
-                theta[:, None] - b[None, :]
-            )
+            prob = pm.math.sigmoid(theta[:, None] - b[None, :])
             y = pm.Bernoulli(
                 self._OBS_KEY,
                 p=prob,

@@ -19,17 +19,17 @@ def _load_nltk_data():
     # Use a cached directory
     local_data_dir = os.environ.get(
         "NLTK_DATA",
-        os.path.expanduser('~/nltk_data'),
+        os.path.expanduser("~/nltk_data"),
     )
     # Add the local directory to NLTK's data path
     if local_data_dir not in nltk.data.path:
         nltk.data.path.append(local_data_dir)
     # List of NLTK packages to check and download
-    packages = ['punkt', 'wordnet', 'omw-1.4']
+    packages = ["punkt", "wordnet", "omw-1.4"]
     package_paths = {
-        'punkt': 'tokenizers/punkt',
-        'wordnet': 'corpora/wordnet',
-        'omw-1.4': 'corpora/omw-1.4'
+        "punkt": "tokenizers/punkt",
+        "wordnet": "corpora/wordnet",
+        "omw-1.4": "corpora/omw-1.4",
     }
     # Check for each package and download if not found
     for package in packages:
@@ -41,18 +41,13 @@ def _load_nltk_data():
             print(f"'{package}' downloaded successfully to '{local_data_dir}'.")
 
 
-SUMMARY_PREFIX_RE = re.compile(
-    r"^\s*(summary\s*:)\s*",
-    flags=re.IGNORECASE
-)
-BERTSCORE_LANG  = "en"
+SUMMARY_PREFIX_RE = re.compile(r"^\s*(summary\s*:)\s*", flags=re.IGNORECASE)
+BERTSCORE_LANG = "en"
 BERTSCORE_MODEL = os.environ.get("BERT_SCORE_MODEL", None)
 
 
 def normalize(
-    s: str,
-    strip_task_prefix: bool = True,
-    task_type: NLGTaskType = NLGTaskType.SUMMARY
+    s: str, strip_task_prefix: bool = True, task_type: NLGTaskType = NLGTaskType.SUMMARY
 ) -> str:
     if not isinstance(s, str):
         return ""
@@ -65,6 +60,8 @@ def normalize(
 
 # -------- METEOR (Explicit Tokenization) --------
 _METEOR_WARNED = False
+
+
 def safe_meteor(ref: str, hyp: str) -> float:
     """
     Explicit whitespace tokenization to avoid Punkt dependency;
@@ -81,7 +78,9 @@ def safe_meteor(ref: str, hyp: str) -> float:
         return float(meteor_score([ref_tokens], hyp_tokens))
     except Exception as e:
         if not _METEOR_WARNED:
-            print(f"[WARN] METEOR calculation failed (shown only once): {e}. Continuing with a score of 0.0.")
+            print(
+                f"[WARN] METEOR calculation failed (shown only once): {e}. Continuing with a score of 0.0."
+            )
             _METEOR_WARNED = True
         return 0.0
 
@@ -97,7 +96,9 @@ def compute_rouge_batch(cands, refs):
     r1, r2, rL = [], [], []
     for c, r in zip(cands, refs):
         if not c or not r:
-            r1.append(0.0); r2.append(0.0); rL.append(0.0)
+            r1.append(0.0)
+            r2.append(0.0)
+            rL.append(0.0)
             continue
         sc = scorer.score(r, c)  # Note the order: (ref, cand)
         r1.append(sc["rouge1"].fmeasure)
@@ -120,8 +121,7 @@ def compute_bertscore_batch(
     device=None,
 ):
     device = device or _get_default_device()
-    if BERTSCORE_MODEL is not None \
-        and "roberta-large" in BERTSCORE_MODEL.lower():
+    if BERTSCORE_MODEL is not None and "roberta-large" in BERTSCORE_MODEL.lower():
         num_layers = 17
     else:
         num_layers = None  # Let huggingface handle it
@@ -153,7 +153,7 @@ def compute_bleu_batch(cands, refs, tokenize="13a", smooth_method="exp"):
             smooth_method=smooth_method,
             use_effective_order=True,
             lowercase=False,
-            tokenize=tokenize
+            tokenize=tokenize,
         )
         scores.append(float(sb.score) / 100.0)  # Convert to 0-1 range
     return scores

@@ -12,12 +12,7 @@ from openai import (
     APITimeoutError,
 )
 from swift.utils import JsonlWriter
-from tenacity import (
-    Retrying,
-    stop_after_attempt,
-    wait_fixed,
-    retry_if_exception_type
-)
+from tenacity import Retrying, stop_after_attempt, wait_fixed, retry_if_exception_type
 
 from .reasoning_parser import CompositeOutputParser
 from ..utils import (
@@ -28,7 +23,7 @@ from ..utils import (
     compute_rouge_batch,
     compute_meteor_batch,
     compute_bleu_batch,
-    compute_bertscore_batch
+    compute_bertscore_batch,
 )
 
 
@@ -65,7 +60,7 @@ Your decision: """
         llm_as_a_judge_model,
         retries,
         wait_time,
-        max_workers
+        max_workers,
     ):
         reasoning_parser_model_path = os.environ.get("REASONING_PARSER_MODEL_PATH")
         self.reasoning_parser = CompositeOutputParser(
@@ -91,7 +86,7 @@ Your decision: """
                     APIError,
                 )
             ),
-            reraise=True  # Reraise the exception if all retries fail
+            reraise=True,  # Reraise the exception if all retries fail
         )
         self._llm_as_a_judge_client = self._initialize_llm_as_a_judge_client()
         self.logger = create_logger()
@@ -155,7 +150,9 @@ Your decision: """
             self.logger.warning(f"Rate limit exceeded. Waiting for retry... Error: {e}")
             raise
         except APIConnectionError as e:
-            self.logger.warning(f"API connection error. Waiting for retry... Error: {e}")
+            self.logger.warning(
+                f"API connection error. Waiting for retry... Error: {e}"
+            )
             raise
         except APITimeoutError as e:
             self.logger.warning(f"API timeout error. Waiting for retry... Error: {e}")
@@ -163,7 +160,9 @@ Your decision: """
         except APIError as e:
             # Check if the error is a server-side issue (5xx) that might resolve on retry
             if 500 <= int(e.code) < 600:
-                self.logger.warning(f"API server error ({int(e.code)}). Waiting for retry... Error: {e}")
+                self.logger.warning(
+                    f"API server error ({int(e.code)}). Waiting for retry... Error: {e}"
+                )
                 raise
             else:
                 # For client-side errors (4xx), we don't want to retry.
@@ -173,7 +172,9 @@ Your decision: """
             self.logger.error(f"An unexpected error occurred: {e}")
             raise
 
-    def run_one_llm_as_a_judge(self, item: Dict[str, Any], candidate_key, ground_truth_key):
+    def run_one_llm_as_a_judge(
+        self, item: Dict[str, Any], candidate_key, ground_truth_key
+    ):
         return self.retryer(
             self._run_one_llm_as_a_judge,
             item=item,
@@ -203,7 +204,7 @@ Your decision: """
             for future in tqdm(
                 as_completed(future_to_request),
                 total=len(future_to_request),
-                desc="Processing LLM-as-a-Judge requests"
+                desc="Processing LLM-as-a-Judge requests",
             ):
                 request_params = future_to_request[future]
                 try:
@@ -211,7 +212,9 @@ Your decision: """
                     results.append(result)
                 except Exception as exc:
                     results.append({"request": request_params, "error": str(exc)})
-                    self.logger.error(f'Request {request_params} generated an exception: {exc}')
+                    self.logger.error(
+                        f"Request {request_params} generated an exception: {exc}"
+                    )
                     log_exception_with_traceback(logger=self.logger)
         return results
 
@@ -248,10 +251,7 @@ Your decision: """
         mtr = compute_meteor_batch(candidates, references)
         # BLEU
         bleu = compute_bleu_batch(
-            candidates,
-            references,
-            tokenize="13a",
-            smooth_method="exp"
+            candidates, references, tokenize="13a", smooth_method="exp"
         )
         n = len(candidates)
         output = []

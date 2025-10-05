@@ -31,9 +31,9 @@ class InferDataset(Dataset):  # TODO: Add schema check
             "key": {"type": "string"},
             "messages": {"type": "array"},
             "model": {"type": "string"},
-            "payload": {"type": "object"}
+            "payload": {"type": "object"},
         },
-        "required": ["key", "messages", "payload"]
+        "required": ["key", "messages", "payload"],
     }
 
     @classmethod
@@ -42,9 +42,7 @@ class InferDataset(Dataset):  # TODO: Add schema check
             # Allow directly loading of customized dataset
             file_name = dataset_name_or_path
             dataset_name = os.path.splitext(
-                os.path.basename(
-                    os.path.abspath(dataset_name_or_path)
-                )
+                os.path.basename(os.path.abspath(dataset_name_or_path))
             )[0]
         else:
             dataset_name = dataset_name_or_path

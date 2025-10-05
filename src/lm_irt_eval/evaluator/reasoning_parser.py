@@ -84,9 +84,7 @@ class CompositeOutputParser(object):
             # mcq@{number_of_choices}
             number_of_choices = int(answer_support.split("@")[-1])
             last_choice = chr(ord("A") + number_of_choices - 1)
-            self.potential_answers = {
-                chr(i) for i in range(65, 65 + number_of_choices)
-            }
+            self.potential_answers = {chr(i) for i in range(65, 65 + number_of_choices)}
             if strict_pattern:
                 self.answer_pattern = rf"[A-{last_choice}]"
             self.answer_type = AnswerType.MCQ
@@ -96,9 +94,7 @@ class CompositeOutputParser(object):
             self.answer_type = AnswerType.YN
         elif isinstance(answer_support, list):
             if strict_pattern:
-                self.answer_pattern = r"|".join(
-                    map(str, answer_support)
-                )
+                self.answer_pattern = r"|".join(map(str, answer_support))
             self.answer_type = AnswerType.LIST
         else:
             # Matching anything non-empty
@@ -108,11 +104,7 @@ class CompositeOutputParser(object):
     def _extract_boxed_answers(self, text):
         r"""Extract answers placed in boxes like \boxed{A}, TeX-like grammar
         Often encountered in Qwen QVQ, MiMo or InternLM"""
-        matches = re.findall(
-            rf"\\boxed\{{({self.answer_pattern})\}}",
-            text,
-            re.DOTALL
-        )
+        matches = re.findall(rf"\\boxed\{{({self.answer_pattern})\}}", text, re.DOTALL)
         if matches:
             return True, matches[-1]  # Always pick the last occurrence
         else:
@@ -189,9 +181,11 @@ class CompositeOutputParser(object):
         return answer
 
     def _process_one(self, text, skip_reasoning_parser: bool):
-        thinking_content, result_content = self.reasoning_parser.extract_reasoning_content(
-            model_output=text,
-            request=None,  # TODO: perhaps create a dummy request
+        thinking_content, result_content = (
+            self.reasoning_parser.extract_reasoning_content(
+                model_output=text,
+                request=None,  # TODO: perhaps create a dummy request
+            )
         )
         if result_content is None:
             # In this case, mostly the <think> left tag is NOT closed by the right </think>
@@ -233,7 +227,9 @@ class CompositeOutputParser(object):
                 break
         return False, answer.strip()
 
-    def __call__(self, batch_text: List[str], verbose=False, skip_reasoning_parser: bool = False):
+    def __call__(
+        self, batch_text: List[str], verbose=False, skip_reasoning_parser: bool = False
+    ):
         decoded_texts = []
         for text in batch_text:
             decomposed_text = self._process_one(text, skip_reasoning_parser)

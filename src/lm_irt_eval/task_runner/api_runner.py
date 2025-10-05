@@ -15,21 +15,12 @@ from openai import (
     RateLimitError,
     APIConnectionError,
     APITimeoutError,
-    PermissionDeniedError
+    PermissionDeniedError,
 )
-from tenacity import (
-    Retrying,
-    stop_after_attempt,
-    wait_fixed,
-    retry_if_exception_type
-)
+from tenacity import Retrying, stop_after_attempt, wait_fixed, retry_if_exception_type
 
 from .base import TaskRunner
-from ..utils import (
-    create_logger,
-    log_exception_with_traceback,
-    NonRetriableHTTPError
-)
+from ..utils import create_logger, log_exception_with_traceback, NonRetriableHTTPError
 
 
 class APIPlatform(Enum):
@@ -69,12 +60,11 @@ class APITaskRunner(TaskRunner):
             payload["reasoning_effort"] = "low"
         if "glm" in model:
             payload["thinking"] = {
-                "type": "enabled" \
-                    if self.enable_thinking else "disabled",
+                "type": "enabled" if self.enable_thinking else "disabled",
             }
         if "claude" in model:
             payload["thinking"] = {
-                "type": "enabled", # Cannot be disabled...
+                "type": "enabled",  # Cannot be disabled...
                 "budget_tokens": max(1024, self.thinking_budget),
             }
         return payload
@@ -113,10 +103,7 @@ class APITaskRunner(TaskRunner):
         kwargs = self._update_bearer_payload(kwargs)
         try:
             with requests.post(
-                self.base_url,
-                headers=self.headers,
-                json=kwargs,
-                timeout=self.timeout
+                self.base_url, headers=self.headers, json=kwargs, timeout=self.timeout
             ) as response:
                 # Check for HTTP errors and decide if we should retry
                 status_code = response.status_code
@@ -136,14 +123,18 @@ class APITaskRunner(TaskRunner):
                         response.raise_for_status()
                     # For server-side errors (5xx), we want to retry. [1]
                     elif 500 <= status_code < 600:
-                        self.logger.warning(f"Server error ({status_code}). Waiting for retry...")
+                        self.logger.warning(
+                            f"Server error ({status_code}). Waiting for retry..."
+                        )
                         response.raise_for_status()
                     # For other 4xx errors, raise a non-retriable error. [7]
                     else:
                         raise NonRetriableHTTPError(error_message, status_code)
                 return json_response
         except requests.exceptions.RequestException as e:
-            self.logger.warning(f"A network-level error occurred: {e}. Waiting for retry...")
+            self.logger.warning(
+                f"A network-level error occurred: {e}. Waiting for retry..."
+            )
             raise
 
     def _execute_oai_api_call(self, **kwargs):
@@ -156,18 +147,24 @@ class APITaskRunner(TaskRunner):
             self.logger.warning(f"Rate limit exceeded. Waiting for retry... Error: {e}")
             raise
         except APIConnectionError as e:
-            self.logger.warning(f"API connection error. Waiting for retry... Error: {e}")
+            self.logger.warning(
+                f"API connection error. Waiting for retry... Error: {e}"
+            )
             raise
         except APITimeoutError as e:
             self.logger.warning(f"API timeout error. Waiting for retry... Error: {e}")
             raise
         except PermissionDeniedError as e:
-            self.logger.warning(f"Permission denied error. Waiting for retry... Error: {e}")
+            self.logger.warning(
+                f"Permission denied error. Waiting for retry... Error: {e}"
+            )
             raise
         except APIError as e:
             # Check if the error is a server-side issue (5xx) that might resolve on retry
             if 500 <= int(e.code) < 600:
-                self.logger.warning(f"API server error ({int(e.code)}). Waiting for retry... Error: {e}")
+                self.logger.warning(
+                    f"API server error ({int(e.code)}). Waiting for retry... Error: {e}"
+                )
                 raise
             else:
                 # For client-side errors (4xx), we don't want to retry.
@@ -194,7 +191,7 @@ class APITaskRunner(TaskRunner):
                     requests.exceptions.RequestException,
                 )
             ),
-            reraise=True  # Reraise the exception if all retries fail
+            reraise=True,  # Reraise the exception if all retries fail
         )
 
         # Before calling, adjust payload
@@ -220,7 +217,11 @@ class APITaskRunner(TaskRunner):
             max_tokens = 8192
         kwargs["max_tokens"] = max_tokens
         # Use the '__call__' method of the Retrying object to wrap the API call
-        executor = self._execute_oai_api_call if self.use_openai_client else self._execute_bearer_api_call
+        executor = (
+            self._execute_oai_api_call
+            if self.use_openai_client
+            else self._execute_bearer_api_call
+        )
         raw_result = retryer(executor, **kwargs)
         parsed_result = self._parse_response(
             {"request": kwargs, "response": raw_result}
@@ -311,7 +312,7 @@ class APITaskRunner(TaskRunner):
             for future in tqdm(
                 as_completed(future_to_request),
                 total=len(future_to_request),
-                desc="Processing requests"
+                desc="Processing requests",
             ):
                 request_params = future_to_request[future]
                 try:
@@ -323,7 +324,9 @@ class APITaskRunner(TaskRunner):
                     )
                 except Exception as exc:
                     results.append({"request": request_params, "error": str(exc)})
-                    self.logger.error(f'Request {request_params} generated an exception: {exc}')
+                    self.logger.error(
+                        f"Request {request_params} generated an exception: {exc}"
+                    )
                     log_exception_with_traceback(logger=self.logger)
         return results
 
@@ -337,7 +340,8 @@ class APITaskRunner(TaskRunner):
                     done_instances.add((record["key"], record["request_model"]))
         self.logger.info(f"Found existing output with {len(done_instances)} records")
         all_reqs = [
-            s for s in self.dataset.samples \
+            s
+            for s in self.dataset.samples
             if (s["key"], s["model"]) not in done_instances
         ]  # Simply use all the samples
         random.shuffle(all_reqs)

@@ -8,7 +8,7 @@ from .base import (
     BaseIRTModel,
     _get_theta_default,
     _get_b_default,
-    _get_a_default
+    _get_a_default,
 )
 
 
@@ -61,13 +61,15 @@ class MultiMetricIRTModel(ContinuousMetricIRTModel):
         with pm.Model(coords=coords) as irt_model:
             psi = pm.Normal("psi", mu=0, sigma=1, dims=self._STUDENT)
             chol, corr, stds = pm.LKJCholeskyCov(
-                'chol_zeta',
+                "chol_zeta",
                 eta=2.0,
                 n=n,
                 sd_dist=pm.Exponential.dist(1.0),
-                compute_corr=True
+                compute_corr=True,
             )
-            zeta_raw = pm.Normal("zeta_raw", 0.0, 1.0, dims=(self._STUDENT, self._METRIC))
+            zeta_raw = pm.Normal(
+                "zeta_raw", 0.0, 1.0, dims=(self._STUDENT, self._METRIC)
+            )
             zeta = pm.Deterministic("zeta", pt.dot(zeta_raw, chol.T))
             theta = pm.Deterministic("theta", psi[:, None, None] + zeta[:, None, :])
             b = _get_b_default(self._b_std_prior)
@@ -105,17 +107,14 @@ class MultiBenchmarkIRTModel(BaseIRTModel):
         with pm.Model(coords=coords) as irt_model:
             psi = pm.Normal("psi", mu=0, sigma=1, dims=self._STUDENT)
             chol, corr, stds = pm.LKJCholeskyCov(
-                'chol_zeta',
+                "chol_zeta",
                 eta=2.0,
                 n=n,
                 sd_dist=pm.Exponential.dist(1.0),
-                compute_corr=True
+                compute_corr=True,
             )
             delta_raw = pm.Normal(
-                "delta_raw",
-                0.0,
-                1.0,
-                dims=(self._STUDENT, self._BENCHMARK)
+                "delta_raw", 0.0, 1.0, dims=(self._STUDENT, self._BENCHMARK)
             )
             delta = pm.Deterministic("zeta", pt.dot(delta_raw, chol.T))
             theta = pm.Deterministic("theta", psi[:, None] + delta)

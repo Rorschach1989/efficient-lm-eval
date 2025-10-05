@@ -16,9 +16,7 @@ def get_args():
     parser.add_argument("--wait_time", type=int, default=5)
     parser.add_argument("--max_workers", type=int, default=20)
     parser.add_argument(
-        "--llm_as_a_judge_model",
-        type=str,
-        default="openai/gpt-5-2025-08-07"
+        "--llm_as_a_judge_model", type=str, default="openai/gpt-5-2025-08-07"
     )
     args = parser.parse_args()
     return args
@@ -38,8 +36,7 @@ def main():
     df = pd.read_json(args.input_file, lines=True)
     df["dataset_name"] = df["payload"].apply(lambda x: x["dataset_name"])
     df["groud_truth"] = df.apply(
-        lambda row: gt_map[row["dataset_name"]](row["payload"]),
-        axis=1
+        lambda row: gt_map[row["dataset_name"]](row["payload"]), axis=1
     )
     metric_calculator = MetricCalculator(
         answer_support="mcq@8",
@@ -49,7 +46,9 @@ def main():
         wait_time=args.wait_time,
         max_workers=args.max_workers,
     )
-    for (request_model, dataset_name), sub_df in df.groupby(["request_model", "dataset_name"]):
+    for (request_model, dataset_name), sub_df in df.groupby(
+        ["request_model", "dataset_name"]
+    ):
         batch = []
         for record in sub_df.to_dict(orient="records"):
             batch.append(
@@ -63,8 +62,11 @@ def main():
                 }
             )
         if dataset_name in {"XSUM", "wmt20"}:
-            task_type = NLGTaskType.SUMMARY \
-                if dataset_name == "XSUM" else NLGTaskType.TRANSLATION
+            task_type = (
+                NLGTaskType.SUMMARY
+                if dataset_name == "XSUM"
+                else NLGTaskType.TRANSLATION
+            )
             filter_double_linebreaks = False if "claude-3" in request_model else True
             batch = metric_calculator.batch_process_nlg(
                 batch,
@@ -73,16 +75,23 @@ def main():
             )
             for m in batch[0]["metric"]:
                 ms = [b["metric"][m] for b in batch]
-                print(f"Request model {request_model}@{dataset_name} under metric {m}: {np.mean(ms)}")
+                print(
+                    f"Request model {request_model}@{dataset_name} under metric {m}: {np.mean(ms)}"
+                )
         else:
             batch = metric_calculator.batch_process_mcq(batch)
             batch_size = len(batch)
             has_judgement = sum("metric" in item for item in batch)
-            correct = sum(item["metric"]["is_correct"] if "metric" in item else 0 for item in batch)
+            correct = sum(
+                item["metric"]["is_correct"] if "metric" in item else 0
+                for item in batch
+            )
             acc = correct / has_judgement
-            print(f"Request model {request_model}@{dataset_name}: "
-                  f"Batch size = {batch_size},"
-                  f" has_judgement = {has_judgement}, acc = {acc}")
+            print(
+                f"Request model {request_model}@{dataset_name}: "
+                f"Batch size = {batch_size},"
+                f" has_judgement = {has_judgement}, acc = {acc}"
+            )
 
 
 if __name__ == "__main__":

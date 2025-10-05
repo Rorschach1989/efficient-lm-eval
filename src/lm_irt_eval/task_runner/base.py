@@ -27,10 +27,7 @@ class TaskRunner(object):
         assert "IRT_INFER_ROOT" in os.environ
         irt_infer_root = os.environ["IRT_INFER_ROOT"]
         dataset_name = self.dataset.name or self._MIXED
-        os.makedirs(
-            os.path.join(irt_infer_root, dataset_name),
-            exist_ok=True
-        )
+        os.makedirs(os.path.join(irt_infer_root, dataset_name), exist_ok=True)
         model_name = self._extract_model_name() or self._MIXED
         thinking_tag = "_think" if self.enable_thinking else ""
         model_name += thinking_tag

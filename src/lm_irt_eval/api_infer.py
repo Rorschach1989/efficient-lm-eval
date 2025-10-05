@@ -9,7 +9,7 @@ def get_args():
     # In API mode, explicitly assemble a mixed dataset before running
     # As this would be much more efficient
     parser.add_argument("--input_file", type=str)
-    parser.add_argument("--use_openai_client", action="store_true" )
+    parser.add_argument("--use_openai_client", action="store_true")
     parser.add_argument("--max_workers", type=int, default=50)
     args = parser.parse_args()
     return args

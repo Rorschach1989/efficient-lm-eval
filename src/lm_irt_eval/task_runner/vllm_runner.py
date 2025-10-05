@@ -41,7 +41,7 @@ class VLLMParamConfigurer(object):
 
     def get_vllm_sampling_params(self):
         extra_kwargs = {
-            "temperature": 0.,
+            "temperature": 0.0,
         }
         if "phi-4-reasoning-plus" in self.model_name:
             # As suggested in
@@ -139,8 +139,7 @@ class VLLMTaskRunner(TaskRunner):
         documented in https://cookbook.openai.com/articles/gpt-oss/run-vllm"""
         output_tokens = output.token_ids
         entries = OPENAI_ENCODING.parse_messages_from_completion_tokens(
-            output_tokens,
-            Role.ASSISTANT
+            output_tokens, Role.ASSISTANT
         )
         infer_output, reasoning_content = "", ""
         for message in entries:
@@ -182,9 +181,7 @@ class VLLMTaskRunner(TaskRunner):
             }
             output = self._filter_outputs_by_length(req_output)
             if self.requires_harmony:
-                infer_output, reasoning_content = self._parse_harmony_output(
-                    output
-                )
+                infer_output, reasoning_content = self._parse_harmony_output(output)
             else:
                 # TODO: maybe use reasoning parser here
                 infer_output, reasoning_content = output.text, ""

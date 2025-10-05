@@ -53,12 +53,10 @@ class IrtInputHandler(object):
 
     def extract_metric(self, metric_id) -> np.ndarray:
         assert metric_id in self.metric_list
-        metric_values_1d = self.raw_data["metric"].apply(
-            lambda x: x.get(metric_id)
-        ).values
-        metric_values_2d = metric_values_1d.reshape(
-            (self.n_models, self.n_items)
+        metric_values_1d = (
+            self.raw_data["metric"].apply(lambda x: x.get(metric_id)).values
         )
+        metric_values_2d = metric_values_1d.reshape((self.n_models, self.n_items))
         return metric_values_2d
 
     def extract_metric_to_irt_inputs(self, metric_id) -> IRTInput:
@@ -67,7 +65,7 @@ class IrtInputHandler(object):
             meta_data={
                 self._STUDENT: copy.deepcopy(self.model_ids),
                 self._ITEM: copy.deepcopy(self.keys),
-            }
+            },
         )
 
     def extract_all_metrics_to_irt_inputs(self):
@@ -77,10 +75,7 @@ class IrtInputHandler(object):
             self._ITEM: copy.deepcopy(self.keys),
             self._METRIC: copy.deepcopy(metric_list),
         }
-        metrics = [
-            self.extract_metric(metric_id)
-            for metric_id in metric_list
-        ]
+        metrics = [self.extract_metric(metric_id) for metric_id in metric_list]
         metrics = np.stack(metrics, axis=-1)
         return IRTInput(
             y=metrics,
@@ -106,11 +101,11 @@ class MultiBenchmarkIRTInputHandler(IrtInputHandler):
         super(MultiBenchmarkIRTInputHandler, self).__post_init__()
         # TODO: Maybe we should check inter-benchmark key uniqueness
         self.benchmarks = sorted(self.raw_data["benchmark"].unique().tolist())
-        self.benchmark_indices = self.raw_data.drop_duplicates(
-            ["key", "benchmark"]
-        )["benchmark"].apply(
-            lambda x: self.benchmarks.index(x)
-        ).values  # Should be a numpy array for compatibility with pymc
+        self.benchmark_indices = (
+            self.raw_data.drop_duplicates(["key", "benchmark"])["benchmark"]
+            .apply(lambda x: self.benchmarks.index(x))
+            .values
+        )  # Should be a numpy array for compatibility with pymc
 
     def extract_metric_to_irt_inputs(self, metric_id) -> IRTInput:
         return IRTInput(
@@ -120,7 +115,7 @@ class MultiBenchmarkIRTInputHandler(IrtInputHandler):
                 self._ITEM: copy.deepcopy(self.keys),
                 self._BENCHMARK: copy.deepcopy(self.benchmarks),
                 "benchmark_indices": copy.deepcopy(self.benchmark_indices),
-            }
+            },
         )
 
     def extract_all_metrics_to_irt_inputs(self):
@@ -132,13 +127,9 @@ class MultiBenchmarkIRTInputHandler(IrtInputHandler):
             self._BENCHMARK: copy.deepcopy(self.benchmarks),
             "benchmark_indices": copy.deepcopy(self.benchmark_indices),
         }
-        metrics = [
-            self.extract_metric(metric_id)
-            for metric_id in metric_list
-        ]
+        metrics = [self.extract_metric(metric_id) for metric_id in metric_list]
         metrics = np.stack(metrics, axis=-1)
         return IRTInput(
             y=metrics,
             meta_data=meta_data,
         )
-

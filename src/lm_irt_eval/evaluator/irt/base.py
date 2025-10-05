@@ -10,6 +10,7 @@ from ...utils.irt_input_transform import IRTInput
 
 class IRTMode(Enum):
     r"""Two canonical modeling mode for IRT tasks"""
+
     CALIBRATION = "calibration"
     SCORING = "scoring"
 
@@ -24,12 +25,10 @@ class BaseIRTModel(object):
 
     def __init__(self, *args, **kwargs):
         self._theta_std_prior = kwargs.pop(
-            "theta_std_prior",
-            "heterogeneous"
+            "theta_std_prior", "heterogeneous"
         )  # {homogenous, heterogeneous}
         self._b_std_prior = kwargs.pop(
-            "b_std_prior",
-            "heterogeneous"
+            "b_std_prior", "heterogeneous"
         )  # {homogenous, heterogeneous}
         self._item_bank = {}
 
@@ -42,9 +41,7 @@ class BaseIRTModel(object):
                 self._item_bank[item_id] = row.to_dict()
 
     def retrieve_calibrated_items(self, item_keys):
-        calibration_map = {
-            f"{key}_calibrated": [] for key in self._get_item_nodes()
-        }
+        calibration_map = {f"{key}_calibrated": [] for key in self._get_item_nodes()}
         for key in item_keys:
             for prefix in self._get_item_nodes():
                 item_id = f"{prefix}[{key}]"
@@ -65,12 +62,7 @@ class BaseIRTModel(object):
         r"""By default, do nothing"""
         return y
 
-    def sample(
-        self,
-        inputs: IRTInput,
-        mode: IRTMode = IRTMode.CALIBRATION,
-        **kwargs
-    ):
+    def sample(self, inputs: IRTInput, mode: IRTMode = IRTMode.CALIBRATION, **kwargs):
         with pm.observe(
             self._build_model(
                 inputs.meta_data,
@@ -87,8 +79,7 @@ class BaseIRTModel(object):
         idata = self.sample(inputs, mode=IRTMode.CALIBRATION, **sampling_kwargs)
         item_nodes = self._get_item_nodes()
         az_summary = az.summary(
-            idata,
-            var_names=item_nodes
+            idata, var_names=item_nodes
         )  # Records everything produced by az
         self.register_item_bank(az_summary)
         return idata
@@ -100,11 +91,7 @@ class BaseIRTModel(object):
             **calibration_map,
             **sampling_kwargs,
         }
-        idata = self.sample(
-            inputs,
-            mode=IRTMode.SCORING,
-            **sampling_kwargs
-        )
+        idata = self.sample(inputs, mode=IRTMode.SCORING, **sampling_kwargs)
         return idata
 
 
@@ -116,7 +103,7 @@ def _get_theta_default(
     theta_offset = pm.Normal(
         "theta_offset",
         mu=0,
-        sigma=1.,
+        sigma=1.0,
         dims=theta_dim,
     )
     if theta_std_prior == "heterogeneous":
@@ -145,7 +132,7 @@ def _get_b_default(
         b_offset = pm.Normal(
             "b_offset",
             mu=0,
-            sigma=1.,
+            sigma=1.0,
             dims=b_dim,
         )
         if b_std_prior == "heterogeneous":
@@ -174,7 +161,7 @@ def _get_b_default(
 
 def _get_a_default(
     a_dim: str = BaseIRTModel._ITEM,
-    mode : IRTMode = IRTMode.CALIBRATION,
+    mode: IRTMode = IRTMode.CALIBRATION,
     **kwargs,
 ):
     if mode is IRTMode.CALIBRATION:

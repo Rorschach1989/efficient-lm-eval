@@ -43,4 +43,3 @@ def log_exception_with_traceback(logger=None):
     # Log the traceback.  This is the *most* important part.
     tb_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
     logger.error("Traceback:\n%s", "".join(tb_lines))
-
