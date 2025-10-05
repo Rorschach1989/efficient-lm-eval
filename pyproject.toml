@@ -1,0 +1,53 @@
+# pyproject.toml
+
+[build-system]
+# Specifies the tools needed to build your package.
+# setuptools is a standard and robust choice.
+requires = ["setuptools>=80.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# Core metadata for your project.
+name = "lm-irt-eval"
+version = "0.1.0"
+authors = [
+  { name="Ruofan Wu", email="wuruofan1989@gmail.com" },
+]
+description = "A package for evaluating language models using Item Response Theory (IRT)."
+readme = "README.md"  # Assumes you have a README.md file
+requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# Runtime dependencies: packages required for your code to RUN.
+dependencies = [
+    "vllm>=0.10.2",
+    "ms-swift>=3.8.2",
+    "tenacity==9.1.2",
+    "sacrebleu==2.5.1",
+    "rouge-score==0.1.2",
+    "bert-score==0.3.13",
+    "pymc==5.25.1",
+    "numpyro==0.19.0",
+    "blackjax==1.2.5",
+    "nutpie==0.15.2"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/Rorschach1989/efficient-lm-eval"
+"Bug Tracker" = "https://github.com/Rorschach1989/efficient-lm-eval/issues"
+
+# Optional dependencies: groups of packages for specific purposes (e.g., development, testing).
+# Install with: pip install -e .[dev]
+[project.optional-dependencies]
+dev = [
+    "pytest",   # For running tests
+    "black",    # For code formatting
+    "ruff",     # For linting
+    "mypy",     # For static type checking
+]
