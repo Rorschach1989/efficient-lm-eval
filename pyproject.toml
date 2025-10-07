@@ -1,20 +1,17 @@
 # pyproject.toml
 
 [build-system]
-# Specifies the tools needed to build your package.
-# setuptools is a standard and robust choice.
 requires = ["setuptools>=80.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-# Core metadata for your project.
 name = "lm-irt-eval"
 version = "0.1.0"
 authors = [
   { name="Ruofan Wu", email="wuruofan1989@gmail.com" },
 ]
 description = "A package for evaluating language models using Item Response Theory (IRT)."
-readme = "README.md"  # Assumes you have a README.md file
+readme = "README.md"
 requires-python = ">=3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -24,7 +21,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
-# Runtime dependencies: packages required for your code to RUN.
 dependencies = [
     "vllm>=0.10.2",
     "ms-swift>=3.8.2",
@@ -43,7 +39,6 @@ dependencies = [
 "Bug Tracker" = "https://github.com/Rorschach1989/efficient-lm-eval/issues"
 
 # Optional dependencies: groups of packages for specific purposes (e.g., development, testing).
-# Install with: pip install -e .[dev]
 [project.optional-dependencies]
 dev = [
     "pytest",   # For running tests
