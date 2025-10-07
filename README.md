@@ -3,7 +3,7 @@
 <h3>Toward a unified framework for data-efficient evaluation of large language models
 </h3>
 
-Lele Liao<sup>1</sup>, Qile Zhang<sup>1</sup>, Ruofan Wu<sup>2</sup>, Guanhua Fang<sup>2</sup>
+Lele Liao<sup>1</sup>, Qile Zhang<sup>2</sup>, Ruofan Wu<sup>1</sup>, Guanhua Fang<sup>1</sup>
 
 <sup>1</sup> Fudan University  
 <sup>2</sup> Shanghai Jiao Tong University
