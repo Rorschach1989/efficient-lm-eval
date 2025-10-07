@@ -19,6 +19,7 @@ We use ``uv`` as the package management tool. To build an applicable environment
 git clone https://github.com/Rorschach1989/efficient-lm-eval.git
 cd efficient-lm-eval
 uv venv --python 3.12 --seed
+source .venv/bin/activate
 uv pip install -e .
 ```
 
